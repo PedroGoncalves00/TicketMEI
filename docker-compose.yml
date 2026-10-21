@@ -1,0 +1,94 @@
+networks:
+  ticketmei-net:
+    driver: bridge
+
+services:
+  catalog:
+    build: ./catalog
+    ports:
+      - "8001:8001"
+    networks: [ticketmei-net]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  api-gateway:
+    build: ./api-gateway
+    environment:
+      CATALOG_URL: http://catalog:8001
+    ports:
+      - "8000:8000"
+    depends_on:
+      catalog:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks: [ticketmei-net]
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.50.0
+    command: ['--config.file=/etc/prometheus/prometheus.yml', '--storage.tsdb.path=/prometheus']
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    networks: [ticketmei-net]
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.3.1
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on: [prometheus]
+    networks: [ticketmei-net]
+    restart: unless-stopped
+
+  # Opcional: do enunciado, pode exigir ajuste de mounts no Docker Desktop/Windows.
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    profiles: [monitoring-extra]
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks: [ticketmei-net]
+
+  k6:
+    image: grafana/k6:0.49.0
+    working_dir: /ci-scripts
+    volumes:
+      - ./k6:/ci-scripts:ro
+    command: run load-test.js
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    networks: [ticketmei-net]
+    profiles: [testing]
+
+volumes:
+  prometheus_data:
+  grafana_data:
