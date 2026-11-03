@@ -16,22 +16,89 @@ services:
       start_period: 5s
     restart: unless-stopped
 
+  rabbitmq:
+    build: ./rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-ticketmei}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-ticketmei_dev}
+    ports:
+      - "15672:15672"
+      - "15692:15692"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks: [ticketmei-net]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 8s
+      retries: 15
+      start_period: 15s
+    restart: unless-stopped
+
+  order:
+    build: ./order
+    environment:
+      CATALOG_URL: http://catalog:8001
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ticketmei}:${RABBITMQ_PASSWORD:-ticketmei_dev}@rabbitmq:5672/%2F
+      ORDER_DB_PATH: /data/orders.db
+    ports:
+      - "8002:8002"
+    volumes:
+      - order_data:/data
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      catalog:
+        condition: service_healthy
+    networks: [ticketmei-net]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  notification:
+    build: ./notification
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ticketmei}:${RABBITMQ_PASSWORD:-ticketmei_dev}@rabbitmq:5672/%2F
+      NOTIFICATION_DB_PATH: /data/notifications.db
+    ports:
+      - "8003:8003"  # Diagnóstico local; o público usa apenas o Gateway
+    volumes:
+      - notification_data:/data
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks: [ticketmei-net]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
   api-gateway:
     build: ./api-gateway
     environment:
       CATALOG_URL: http://catalog:8001
+      ORDER_URL: http://order:8002
     ports:
       - "8000:8000"
     depends_on:
       catalog:
         condition: service_healthy
+      order:
+        condition: service_healthy
+    networks: [ticketmei-net]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
       interval: 5s
       timeout: 3s
       retries: 10
       start_period: 5s
-    networks: [ticketmei-net]
     restart: unless-stopped
 
   prometheus:
@@ -44,6 +111,10 @@ services:
       - "9090:9090"
     depends_on:
       api-gateway:
+        condition: service_healthy
+      notification:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks: [ticketmei-net]
     restart: unless-stopped
@@ -64,12 +135,10 @@ services:
     networks: [ticketmei-net]
     restart: unless-stopped
 
-  # Opcional: do enunciado, pode exigir ajuste de mounts no Docker Desktop/Windows.
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.47.2
     profiles: [monitoring-extra]
-    ports:
-      - "8080:8080"
+    ports: ["8080:8080"]
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
@@ -82,7 +151,7 @@ services:
     working_dir: /ci-scripts
     volumes:
       - ./k6:/ci-scripts:ro
-    command: run load-test.js
+    command: run smoke-order.js
     depends_on:
       api-gateway:
         condition: service_healthy
@@ -90,5 +159,8 @@ services:
     profiles: [testing]
 
 volumes:
+  rabbitmq_data:
+  order_data:
+  notification_data:
   prometheus_data:
   grafana_data:
