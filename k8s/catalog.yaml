@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
         - name: catalog
-          image: ghcr.io/pedrogoncalves00/ticketmei-catalog:latest
+          image: ghcr.io/pedrogoncalves00/ticketmei-catalog:1ebcaa3c1529f80e0e457638b12af7ebbb6a576c
           imagePullPolicy: Always
           ports:
             - containerPort: 8001

@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
         - name: rabbitmq
-          image: ghcr.io/pedrogoncalves00/ticketmei-rabbitmq:latest
+          image: ghcr.io/pedrogoncalves00/ticketmei-rabbitmq:1ebcaa3c1529f80e0e457638b12af7ebbb6a576c
           imagePullPolicy: Always
           ports:
             - name: amqp

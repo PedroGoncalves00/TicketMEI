@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
         - name: order
-          image: ghcr.io/pedrogoncalves00/ticketmei-order:latest
+          image: ghcr.io/pedrogoncalves00/ticketmei-order:1ebcaa3c1529f80e0e457638b12af7ebbb6a576c
           imagePullPolicy: Always
           ports:
             - containerPort: 8002
