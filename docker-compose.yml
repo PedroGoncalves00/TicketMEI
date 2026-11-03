@@ -2,108 +2,125 @@ networks:
   ticketmei-net:
     driver: bridge
 
+volumes:
+  prometheus_data:
+  grafana_data:
+  redis_data:
+  rabbitmq_data:
+
 services:
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ticketmei
+      RABBITMQ_DEFAULT_PASS: ticketmei_dev
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - ticketmei-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ticketmei-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   catalog:
     build: ./catalog
+    container_name: catalog
     ports:
       - "8001:8001"
-    networks: [ticketmei-net]
+    networks:
+      - ticketmei-net
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health', timeout=2)"]
       interval: 5s
       timeout: 3s
       retries: 10
-      start_period: 5s
-    restart: unless-stopped
-
-  rabbitmq:
-    build: ./rabbitmq
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-ticketmei}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-ticketmei_dev}
-    ports:
-      - "15672:15672"
-      - "15692:15692"
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    networks: [ticketmei-net]
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 8s
-      retries: 15
-      start_period: 15s
-    restart: unless-stopped
 
   order:
     build: ./order
-    environment:
-      CATALOG_URL: http://catalog:8001
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ticketmei}:${RABBITMQ_PASSWORD:-ticketmei_dev}@rabbitmq:5672/%2F
-      ORDER_DB_PATH: /data/orders.db
+    container_name: order
     ports:
       - "8002:8002"
-    volumes:
-      - order_data:/data
+    environment:
+      RABBITMQ_URL: amqp://ticketmei:ticketmei_dev@rabbitmq:5672/%2F
     depends_on:
       rabbitmq:
         condition: service_healthy
-      catalog:
-        condition: service_healthy
-    networks: [ticketmei-net]
+    networks:
+      - ticketmei-net
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health', timeout=2)"]
       interval: 5s
       timeout: 3s
       retries: 10
-      start_period: 5s
-    restart: unless-stopped
 
   notification:
     build: ./notification
-    environment:
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ticketmei}:${RABBITMQ_PASSWORD:-ticketmei_dev}@rabbitmq:5672/%2F
-      NOTIFICATION_DB_PATH: /data/notifications.db
+    container_name: notification
     ports:
-      - "8003:8003"  # Diagnóstico local; o público usa apenas o Gateway
-    volumes:
-      - notification_data:/data
+      - "8003:8003"
+    environment:
+      RABBITMQ_URL: amqp://ticketmei:ticketmei_dev@rabbitmq:5672/%2F
     depends_on:
       rabbitmq:
         condition: service_healthy
-    networks: [ticketmei-net]
+    networks:
+      - ticketmei-net
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health', timeout=2)"]
       interval: 5s
       timeout: 3s
       retries: 10
-      start_period: 5s
-    restart: unless-stopped
 
   api-gateway:
     build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "8000:8000"
     environment:
       CATALOG_URL: http://catalog:8001
       ORDER_URL: http://order:8002
-    ports:
-      - "8000:8000"
+      REDIS_URL: redis://redis:6379/0
+      RATE_LIMIT_REQUESTS: 5
+      RATE_LIMIT_WINDOW: 1
     depends_on:
       catalog:
         condition: service_healthy
       order:
         condition: service_healthy
-    networks: [ticketmei-net]
+      redis:
+        condition: service_healthy
+    networks:
+      - ticketmei-net
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
       interval: 5s
       timeout: 3s
       retries: 10
-      start_period: 5s
-    restart: unless-stopped
 
   prometheus:
     image: prom/prometheus:v2.50.0
-    command: ['--config.file=/etc/prometheus/prometheus.yml', '--storage.tsdb.path=/prometheus']
+    container_name: prometheus
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -112,55 +129,38 @@ services:
     depends_on:
       api-gateway:
         condition: service_healthy
-      notification:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    networks: [ticketmei-net]
-    restart: unless-stopped
+    networks:
+      - ticketmei-net
 
   grafana:
     image: grafana/grafana:10.3.1
+    container_name: grafana
     environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
-      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
       - "3000:3000"
-    depends_on: [prometheus]
-    networks: [ticketmei-net]
-    restart: unless-stopped
-
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.47.2
-    profiles: [monitoring-extra]
-    ports: ["8080:8080"]
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-    networks: [ticketmei-net]
+    depends_on:
+      - prometheus
+    networks:
+      - ticketmei-net
 
   k6:
     image: grafana/k6:0.49.0
+    container_name: k6
     working_dir: /ci-scripts
     volumes:
       - ./k6:/ci-scripts:ro
-    command: run smoke-order.js
     depends_on:
       api-gateway:
         condition: service_healthy
-    networks: [ticketmei-net]
-    profiles: [testing]
+    networks:
+      - ticketmei-net
+    profiles:
+      - testing
 
-volumes:
-  rabbitmq_data:
-  order_data:
-  notification_data:
-  prometheus_data:
-  grafana_data:
+
