@@ -36,25 +36,69 @@ jobs:
       - name: Executar testes
         run: python -m pytest -q tests
 
-  build-and-push:
-    name: Build e push - ${{ matrix.service }}
+  changes:
+    name: Detetar servicos alterados
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.changed.outputs.matrix }}
+      any: ${{ steps.changed.outputs.any }}
+    steps:
+      - name: Checkout com historico
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Identificar diretorios de servicos alterados
+        id: changed
+        shell: bash
+        run: |
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.sha }}"
+
+          if [[ "$BEFORE" =~ ^0+$ ]] || ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            FILES="$(git diff-tree --no-commit-id --name-only -r "$AFTER")"
+          else
+            FILES="$(git diff --name-only "$BEFORE" "$AFTER")"
+          fi
+
+          echo "Ficheiros alterados:"
+          printf '%s\n' "$FILES"
+
+          MATRIX='[]'
+
+          add_service() {
+            local service="$1"
+            local context="./$1"
+            MATRIX="$(jq -c               --arg service "$service"               --arg context "$context"               '. + [{service: $service, context: $context}]' <<< "$MATRIX")"
+          }
+
+          grep -q '^catalog/' <<< "$FILES" && add_service "catalog" || true
+          grep -q '^order/' <<< "$FILES" && add_service "order" || true
+          grep -q '^notification/' <<< "$FILES" && add_service "notification" || true
+          grep -q '^api-gateway/' <<< "$FILES" && add_service "api-gateway" || true
+          grep -q '^rabbitmq/' <<< "$FILES" && add_service "rabbitmq" || true
+
+          if [ "$MATRIX" = "[]" ]; then
+            ANY=false
+          else
+            ANY=true
+          fi
+
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          echo "any=$ANY" >> "$GITHUB_OUTPUT"
+          echo "Servicos a construir: $MATRIX"
+
+  build-and-push:
+    name: Build e push - ${{ matrix.service }}
+    needs: [test, changes]
+    if: needs.changes.outputs.any == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - service: catalog
-            context: ./catalog
-          - service: order
-            context: ./order
-          - service: notification
-            context: ./notification
-          - service: api-gateway
-            context: ./api-gateway
-          - service: rabbitmq
-            context: ./rabbitmq
+        include: ${{ fromJSON(needs.changes.outputs.matrix) }}
 
     steps:
       - name: Checkout
@@ -88,26 +132,43 @@ jobs:
 
   update-manifests:
     name: Atualizar tags Kubernetes
-    needs: build-and-push
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [changes, build-and-push]
+    if: always() && needs.changes.outputs.any == 'true' && needs.build-and-push.result == 'success'
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout da main
         uses: actions/checkout@v4
         with:
           ref: main
 
-      - name: Atualizar imagens para o Git SHA
+      - name: Atualizar apenas os manifestos dos servicos reconstruidos
         shell: bash
+        env:
+          MATRIX: ${{ needs.changes.outputs.matrix }}
         run: |
           OWNER_LC="${GITHUB_REPOSITORY_OWNER,,}"
           BASE="${REGISTRY}/${OWNER_LC}"
 
-          sed -i -E "s#image: ghcr.io/.*/ticketmei-catalog:.*#image: ${BASE}/ticketmei-catalog:${GITHUB_SHA}#" k8s/catalog.yaml
-          sed -i -E "s#image: ghcr.io/.*/ticketmei-order:.*#image: ${BASE}/ticketmei-order:${GITHUB_SHA}#" k8s/order.yaml
-          sed -i -E "s#image: ghcr.io/.*/ticketmei-notification:.*#image: ${BASE}/ticketmei-notification:${GITHUB_SHA}#" k8s/notification.yaml
-          sed -i -E "s#image: ghcr.io/.*/ticketmei-api-gateway:.*#image: ${BASE}/ticketmei-api-gateway:${GITHUB_SHA}#" k8s/api-gateway.yaml
-          sed -i -E "s#image: ghcr.io/.*/ticketmei-rabbitmq:.*#image: ${BASE}/ticketmei-rabbitmq:${GITHUB_SHA}#" k8s/rabbitmq.yaml
+          echo "$MATRIX" | jq -r '.[].service' | while read -r SERVICE; do
+            case "$SERVICE" in
+              catalog)
+                sed -i -E "s#image: ghcr.io/.*/ticketmei-catalog:.*#image: ${BASE}/ticketmei-catalog:${GITHUB_SHA}#" k8s/catalog.yaml
+                ;;
+              order)
+                sed -i -E "s#image: ghcr.io/.*/ticketmei-order:.*#image: ${BASE}/ticketmei-order:${GITHUB_SHA}#" k8s/order.yaml
+                ;;
+              notification)
+                sed -i -E "s#image: ghcr.io/.*/ticketmei-notification:.*#image: ${BASE}/ticketmei-notification:${GITHUB_SHA}#" k8s/notification.yaml
+                ;;
+              api-gateway)
+                sed -i -E "s#image: ghcr.io/.*/ticketmei-api-gateway:.*#image: ${BASE}/ticketmei-api-gateway:${GITHUB_SHA}#" k8s/api-gateway.yaml
+                ;;
+              rabbitmq)
+                sed -i -E "s#image: ghcr.io/.*/ticketmei-rabbitmq:.*#image: ${BASE}/ticketmei-rabbitmq:${GITHUB_SHA}#" k8s/rabbitmq.yaml
+                ;;
+            esac
+          done
 
       - name: Commit dos manifestos atualizados
         shell: bash
@@ -120,5 +181,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add k8s/catalog.yaml k8s/order.yaml k8s/notification.yaml k8s/api-gateway.yaml k8s/rabbitmq.yaml
-          git commit -m "ci: update Kubernetes images to ${GITHUB_SHA} [skip ci]"
+          git commit -m "ci: update changed Kubernetes images to ${GITHUB_SHA} [skip ci]"
           git push origin main

@@ -1,0 +1,10 @@
+﻿apiVersion: v1
+data:
+  default.yml: "apiVersion: 1\r\nproviders:\r\n  - name: 'TicketMEI'\r\n    orgId:
+    1\r\n    folder: 'TicketMEI'\r\n    type: file\r\n    disableDeletion: false\r\n
+    \   updateIntervalSeconds: 10\r\n    allowUiUpdates: true\r\n    options:\r\n
+    \     path: /var/lib/grafana/dashboards\r\n"
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+  namespace: ticketmei
