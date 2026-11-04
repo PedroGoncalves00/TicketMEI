@@ -1,0 +1,15 @@
+﻿apiVersion: v1
+data:
+  prometheus.yml: "global:\r\n  scrape_interval: 5s\r\n  evaluation_interval: 5s\r\n\r\nscrape_configs:\r\n
+    \ - job_name: api-gateway\r\n    metrics_path: /metrics\r\n    static_configs:\r\n
+    \     - targets: ['api-gateway:8000']\r\n  - job_name: catalog\r\n    metrics_path:
+    /metrics\r\n    static_configs:\r\n      - targets: ['catalog:8001']\r\n  - job_name:
+    order\r\n    metrics_path: /metrics\r\n    static_configs:\r\n      - targets:
+    ['order:8002']\r\n  - job_name: notification\r\n    metrics_path: /metrics\r\n
+    \   static_configs:\r\n      - targets: ['notification:8003']\r\n  - job_name:
+    rabbitmq\r\n    metrics_path: /metrics\r\n    static_configs:\r\n      - targets:
+    ['rabbitmq:15692']\r\n"
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: ticketmei

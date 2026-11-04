@@ -1,0 +1,9 @@
+﻿apiVersion: v1
+data:
+  prometheus.yml: "apiVersion: 1\r\ndatasources:\r\n  - name: Prometheus\r\n    uid:
+    prometheus\r\n    type: prometheus\r\n    access: proxy\r\n    url: http://prometheus:9090\r\n
+    \   isDefault: true\r\n    editable: true\r\n"
+kind: ConfigMap
+metadata:
+  name: grafana-datasource
+  namespace: ticketmei
