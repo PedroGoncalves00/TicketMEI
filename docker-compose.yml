@@ -15,6 +15,7 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+      - "15692:15692"
     environment:
       RABBITMQ_DEFAULT_USER: ticketmei
       RABBITMQ_DEFAULT_PASS: ticketmei_dev
