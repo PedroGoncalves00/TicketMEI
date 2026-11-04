@@ -52,4 +52,4 @@ async def metrics():
 
 @app.get('/health', include_in_schema=False)
 async def health():
-    return {'status': 'ok'}
+    return {'status': 'ok - v2.0-demo'}
