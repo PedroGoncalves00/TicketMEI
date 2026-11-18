@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
         - name: api-gateway
-          image: ghcr.io/pedrogoncalves00/ticketmei-api-gateway:1ebcaa3c1529f80e0e457638b12af7ebbb6a576c
+          image: ghcr.io/pedrogoncalves00/ticketmei-api-gateway:84dfb1a94ed41bd5e3aca3152d81f4c0a3856abd
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
