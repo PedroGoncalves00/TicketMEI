@@ -173,7 +173,7 @@ data:
     \ \"uid\": \"ticketmei-phase1\",\r\n  \"version\": 4,\r\n  \"weekStart\": \"\"\r\n}\r\n"
   dashboard2.json: "{\r\n  \"uid\": \"ticketmei-fase2\",\r\n  \"id\": null,\r\n  \"title\":
     \"TicketMEI - Fase 2\",\r\n  \"tags\": [\r\n    \"ticketmei\",\r\n    \"fase2\"\r\n
-    \ ],\r\n  \"schemaVersion\": 39,\r\n  \"version\": 1,\r\n  \"refresh\": \"5s\",\r\n
+    \ ],\r\n  \"schemaVersion\": 39,\r\n  \"version\": 4,\r\n  \"refresh\": \"5s\",\r\n
     \ \"time\": {\r\n    \"from\": \"now-15m\",\r\n    \"to\": \"now\"\r\n  },\r\n
     \ \"panels\": [\r\n    {\r\n      \"id\": 1,\r\n      \"title\": \"Compras criadas
     por segundo\",\r\n      \"type\": \"timeseries\",\r\n      \"gridPos\": {\r\n
@@ -243,7 +243,99 @@ data:
     {\r\n          \"unit\": \"ops\"\r\n        },\r\n        \"overrides\": []\r\n
     \     },\r\n      \"options\": {\r\n        \"legend\": {\r\n          \"displayMode\":
     \"list\",\r\n          \"placement\": \"bottom\"\r\n        },\r\n        \"tooltip\":
-    {\r\n          \"mode\": \"multi\"\r\n        }\r\n      }\r\n    }\r\n  ]\r\n}"
+    {\r\n          \"mode\": \"multi\"\r\n        }\r\n      }\r\n    },\r\n    {\r\n
+    \     \"id\": 7,\r\n      \"title\": \"Estado do Circuit Breaker (0=Closed, 1=Open,
+    2=Half-Open)\",\r\n      \"type\": \"timeseries\",\r\n      \"gridPos\": {\r\n
+    \       \"h\": 8,\r\n        \"w\": 12,\r\n        \"x\": 0,\r\n        \"y\":
+    24\r\n      },\r\n      \"datasource\": {\r\n        \"type\": \"prometheus\",\r\n
+    \       \"uid\": \"prometheus\"\r\n      },\r\n      \"targets\": [\r\n        {\r\n
+    \         \"expr\": \"max(circuit_breaker_state)\",\r\n          \"refId\": \"A\",\r\n
+    \         \"legendFormat\": \"Circuit Breaker State\"\r\n        }\r\n      ],\r\n
+    \     \"fieldConfig\": {\r\n        \"defaults\": {\r\n          \"min\": 0,\r\n
+    \         \"max\": 2,\r\n          \"decimals\": 0,\r\n          \"custom\": {\r\n
+    \           \"lineInterpolation\": \"stepAfter\",\r\n            \"lineWidth\":
+    2,\r\n            \"fillOpacity\": 15,\r\n            \"showPoints\": \"always\",\r\n
+    \           \"pointSize\": 5\r\n          },\r\n          \"mappings\": [\r\n
+    \           {\r\n              \"type\": \"value\",\r\n              \"options\":
+    {\r\n                \"0\": {\r\n                  \"text\": \"Closed (0)\",\r\n
+    \                 \"color\": \"green\",\r\n                  \"index\": 0\r\n
+    \               },\r\n                \"1\": {\r\n                  \"text\":
+    \"Open (1)\",\r\n                  \"color\": \"red\",\r\n                  \"index\":
+    1\r\n                },\r\n                \"2\": {\r\n                  \"text\":
+    \"Half-Open (2)\",\r\n                  \"color\": \"yellow\",\r\n                  \"index\":
+    2\r\n                }\r\n              }\r\n            }\r\n          ],\r\n
+    \         \"thresholds\": {\r\n            \"mode\": \"absolute\",\r\n            \"steps\":
+    [\r\n              {\r\n                \"color\": \"green\",\r\n                \"value\":
+    null\r\n              },\r\n              {\r\n                \"color\": \"red\",\r\n
+    \               \"value\": 1\r\n              },\r\n              {\r\n                \"color\":
+    \"yellow\",\r\n                \"value\": 2\r\n              }\r\n            ]\r\n
+    \         }\r\n        },\r\n        \"overrides\": []\r\n      },\r\n      \"options\":
+    {\r\n        \"legend\": {\r\n          \"displayMode\": \"list\",\r\n          \"placement\":
+    \"bottom\"\r\n        },\r\n        \"tooltip\": {\r\n          \"mode\": \"multi\"\r\n
+    \       }\r\n      }\r\n    },\r\n    {\r\n      \"id\": 8,\r\n      \"title\":
+    \"Taxa de Fallbacks e Chamadas do Cliente Payment\",\r\n      \"type\": \"timeseries\",\r\n
+    \     \"gridPos\": {\r\n        \"h\": 8,\r\n        \"w\": 12,\r\n        \"x\":
+    12,\r\n        \"y\": 24\r\n      },\r\n      \"datasource\": {\r\n        \"type\":
+    \"prometheus\",\r\n        \"uid\": \"prometheus\"\r\n      },\r\n      \"targets\":
+    [\r\n        {\r\n          \"expr\": \"sum by (status) (rate(payment_client_requests_total[1m]))\",\r\n
+    \         \"refId\": \"A\",\r\n          \"legendFormat\": \"Client Request ({{status}})\"\r\n
+    \       },\r\n        {\r\n          \"expr\": \"sum(rate(circuit_breaker_fallbacks_total[1m]))\",\r\n
+    \         \"refId\": \"B\",\r\n          \"legendFormat\": \"Fallbacks (circuit_breaker)\"\r\n
+    \       }\r\n      ],\r\n      \"fieldConfig\": {\r\n        \"defaults\": {\r\n
+    \         \"unit\": \"ops\"\r\n        },\r\n        \"overrides\": []\r\n      },\r\n
+    \     \"options\": {\r\n        \"legend\": {\r\n          \"displayMode\": \"list\",\r\n
+    \         \"placement\": \"bottom\"\r\n        },\r\n        \"tooltip\": {\r\n
+    \         \"mode\": \"multi\"\r\n        }\r\n      }\r\n    },\r\n    {\r\n      \"id\":
+    9,\r\n      \"title\": \"Latencia do Servico Payment (p95 & p99)\",\r\n      \"type\":
+    \"timeseries\",\r\n      \"gridPos\": {\r\n        \"h\": 8,\r\n        \"w\":
+    12,\r\n        \"x\": 0,\r\n        \"y\": 32\r\n      },\r\n      \"datasource\":
+    {\r\n        \"type\": \"prometheus\",\r\n        \"uid\": \"prometheus\"\r\n
+    \     },\r\n      \"targets\": [\r\n        {\r\n          \"expr\": \"histogram_quantile(0.95,
+    sum(rate(payment_processing_duration_seconds_bucket[1m])) by (le))\",\r\n          \"refId\":
+    \"A\",\r\n          \"legendFormat\": \"p95 Latency\"\r\n        },\r\n        {\r\n
+    \         \"expr\": \"histogram_quantile(0.99, sum(rate(payment_processing_duration_seconds_bucket[1m]))
+    by (le))\",\r\n          \"refId\": \"B\",\r\n          \"legendFormat\": \"p99
+    Latency\"\r\n        }\r\n      ],\r\n      \"fieldConfig\": {\r\n        \"defaults\":
+    {\r\n          \"unit\": \"s\"\r\n        },\r\n        \"overrides\": []\r\n
+    \     },\r\n      \"options\": {\r\n        \"legend\": {\r\n          \"displayMode\":
+    \"list\",\r\n          \"placement\": \"bottom\"\r\n        },\r\n        \"tooltip\":
+    {\r\n          \"mode\": \"multi\"\r\n        }\r\n      }\r\n    },\r\n    {\r\n
+    \     \"id\": 10,\r\n      \"title\": \"Pedidos e Erros no Servico Payment (por
+    segundo)\",\r\n      \"type\": \"timeseries\",\r\n      \"gridPos\": {\r\n        \"h\":
+    8,\r\n        \"w\": 12,\r\n        \"x\": 12,\r\n        \"y\": 32\r\n      },\r\n
+    \     \"datasource\": {\r\n        \"type\": \"prometheus\",\r\n        \"uid\":
+    \"prometheus\"\r\n      },\r\n      \"targets\": [\r\n        {\r\n          \"expr\":
+    \"sum by (status) (rate(payment_requests_total[1m]))\",\r\n          \"refId\":
+    \"A\",\r\n          \"legendFormat\": \"{{status}}\"\r\n        }\r\n      ],\r\n
+    \     \"fieldConfig\": {\r\n        \"defaults\": {\r\n          \"unit\": \"ops\"\r\n
+    \       },\r\n        \"overrides\": []\r\n      },\r\n      \"options\": {\r\n
+    \       \"legend\": {\r\n          \"displayMode\": \"list\",\r\n          \"placement\":
+    \"bottom\"\r\n        },\r\n        \"tooltip\": {\r\n          \"mode\": \"multi\"\r\n
+    \       }\r\n      }\r\n    },\r\n    {\r\n      \"id\": 11,\r\n      \"title\":
+    \"Encomendas CONFIRMED vs FAILED (por segundo)\",\r\n      \"type\": \"timeseries\",\r\n
+    \     \"gridPos\": {\r\n        \"h\": 8,\r\n        \"w\": 12,\r\n        \"x\":
+    0,\r\n        \"y\": 40\r\n      },\r\n      \"datasource\": {\r\n        \"type\":
+    \"prometheus\",\r\n        \"uid\": \"prometheus\"\r\n      },\r\n      \"targets\":
+    [\r\n        {\r\n          \"expr\": \"sum by (status) (rate(orders_initiated_total{status=~\\\"CONFIRMED|FAILED\\\"}[1m]))\",\r\n
+    \         \"refId\": \"A\",\r\n          \"legendFormat\": \"{{status}}\"\r\n
+    \       }\r\n      ],\r\n      \"fieldConfig\": {\r\n        \"defaults\": {\r\n
+    \         \"unit\": \"ops\"\r\n        },\r\n        \"overrides\": []\r\n      },\r\n
+    \     \"options\": {\r\n        \"legend\": {\r\n          \"displayMode\": \"list\",\r\n
+    \         \"placement\": \"bottom\"\r\n        },\r\n        \"tooltip\": {\r\n
+    \         \"mode\": \"multi\"\r\n        }\r\n      }\r\n    },\r\n    {\r\n      \"id\":
+    12,\r\n      \"title\": \"Total Acumulado de Encomendas por Estado\",\r\n      \"type\":
+    \"stat\",\r\n      \"gridPos\": {\r\n        \"h\": 8,\r\n        \"w\": 12,\r\n
+    \       \"x\": 12,\r\n        \"y\": 40\r\n      },\r\n      \"datasource\": {\r\n
+    \       \"type\": \"prometheus\",\r\n        \"uid\": \"prometheus\"\r\n      },\r\n
+    \     \"targets\": [\r\n        {\r\n          \"expr\": \"sum by (status) (orders_initiated_total)\",\r\n
+    \         \"refId\": \"A\",\r\n          \"legendFormat\": \"{{status}}\"\r\n
+    \       }\r\n      ],\r\n      \"fieldConfig\": {\r\n        \"defaults\": {\r\n
+    \         \"unit\": \"short\"\r\n        },\r\n        \"overrides\": []\r\n      },\r\n
+    \     \"options\": {\r\n        \"colorMode\": \"value\",\r\n        \"graphMode\":
+    \"none\",\r\n        \"justifyMode\": \"auto\",\r\n        \"orientation\": \"auto\",\r\n
+    \       \"reduceOptions\": {\r\n          \"calcs\": [\r\n            \"lastNotNull\"\r\n
+    \         ],\r\n          \"fields\": \"\",\r\n          \"values\": false\r\n
+    \       }\r\n      }\r\n    }\r\n  ]\r\n}"
 kind: ConfigMap
 metadata:
   name: grafana-dashboards
