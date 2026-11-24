@@ -6,6 +6,12 @@ metadata:
 data:
   CATALOG_URL: http://catalog:8001
   ORDER_DB_PATH: /data/orders.db
+  PAYMENT_URL: http://payment:8004
+  CB_FAILURE_THRESHOLD: "5"
+  CB_RECOVERY_TIMEOUT: "15.0"
+  CB_REQUEST_TIMEOUT: "1.0"
+  CB_MAX_RETRIES: "2"
+  CB_BASE_BACKOFF: "0.1"
 ---
 apiVersion: apps/v1
 kind: Deployment
