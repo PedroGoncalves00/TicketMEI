@@ -32,6 +32,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install             -r catalog/requirements.txt             -r api-gateway/requirements.txt             -r order/requirements.txt             -r notification/requirements.txt             pytest
+          if [ -f payment/requirements.txt ]; then
+            python -m pip install -r payment/requirements.txt
+          fi
 
       - name: Executar testes
         run: python -m pytest -q tests
