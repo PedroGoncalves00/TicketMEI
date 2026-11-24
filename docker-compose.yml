@@ -7,6 +7,7 @@ volumes:
   grafana_data:
   redis_data:
   rabbitmq_data:
+  payment_data:
 
 services:
   rabbitmq:
@@ -57,6 +58,23 @@ services:
       timeout: 3s
       retries: 10
 
+  payment:
+    build: ./payment
+    container_name: payment
+    ports:
+      - "8004:8004"
+    environment:
+      PAYMENT_DB_PATH: /data/payment.db
+    volumes:
+      - payment_data:/data
+    networks:
+      - ticketmei-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8004/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   order:
     build: ./order
     container_name: order
@@ -64,8 +82,16 @@ services:
       - "8002:8002"
     environment:
       RABBITMQ_URL: amqp://ticketmei:ticketmei_dev@rabbitmq:5672/%2F
+      PAYMENT_URL: http://payment:8004
+      CB_FAILURE_THRESHOLD: "5"
+      CB_RECOVERY_TIMEOUT: "15.0"
+      CB_REQUEST_TIMEOUT: "1.0"
+      CB_MAX_RETRIES: "2"
+      CB_BASE_BACKOFF: "0.1"
     depends_on:
       rabbitmq:
+        condition: service_healthy
+      payment:
         condition: service_healthy
     networks:
       - ticketmei-net
