@@ -423,7 +423,7 @@
         {
           "expr": "sum by (status) (rate(payment_requests_total[1m]))",
           "refId": "A",
-          "legendFormat": "{{status}}"
+          "legendFormat": "{{http_status}}"
         }
       ],
       "fieldConfig": {
