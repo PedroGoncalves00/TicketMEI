@@ -7,7 +7,7 @@
     "fase2"
   ],
   "schemaVersion": 39,
-  "version": 4,
+  "version": 5,
   "refresh": "5s",
   "time": {
     "from": "now-15m",
@@ -30,7 +30,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(orders_initiated_total{status=\"PENDING\"}[1m]))",
+          "expr": "sum(rate(orders_initiated_total{status=\"CONFIRMED\"}[1m]))",
           "refId": "A",
           "legendFormat": "Compras criadas por segundo"
         }
@@ -421,7 +421,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (status) (rate(payment_requests_total[1m]))",
+          "expr": "sum by (http_status) (rate(payment_requests_total[1m]))",
           "refId": "A",
           "legendFormat": "{{http_status}}"
         }

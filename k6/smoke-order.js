@@ -18,15 +18,20 @@ export default function () {
     quantity: 2,
     email: `teste${__VU}-${__ITER}@example.com`,
   });
-  const res = http.post('http://api-gateway:8000/orders', payload,
-                        {headers: {'Content-Type': 'application/json'}});
-  check(res, {'POST /orders responde 202': r => r.status === 202,
-              'Compra fica PENDING': r => r.status === 202 && r.json('status') === 'PENDING'});
-  if (res.status === 202) {
+  const res = http.post('http://api-gateway:8000/orders', payload, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+  check(res, {
+    'POST /orders responde 201': (r) => r.status === 201,
+    'Compra fica CONFIRMED': (r) => r.status === 201 && r.json('status') === 'CONFIRMED',
+  });
+  if (res.status === 201) {
     const id = res.json('id');
     const detail = http.get(`http://api-gateway:8000/orders/${id}`);
-    check(detail, {'GET /orders/{id} responde 200': r => r.status === 200,
-                   'Identificador confere': r => r.status === 200 && r.json('id') === id});
+    check(detail, {
+      'GET /orders/{id} responde 200': (r) => r.status === 200,
+      'Identificador confere': (r) => r.status === 200 && r.json('id') === id,
+    });
   }
   sleep(0.2);
 }

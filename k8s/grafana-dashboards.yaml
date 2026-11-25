@@ -173,14 +173,14 @@ data:
     \ \"uid\": \"ticketmei-phase1\",\r\n  \"version\": 4,\r\n  \"weekStart\": \"\"\r\n}\r\n"
   dashboard2.json: "{\r\n  \"uid\": \"ticketmei-fase2\",\r\n  \"id\": null,\r\n  \"title\":
     \"TicketMEI - Fase 2\",\r\n  \"tags\": [\r\n    \"ticketmei\",\r\n    \"fase2\"\r\n
-    \ ],\r\n  \"schemaVersion\": 39,\r\n  \"version\": 4,\r\n  \"refresh\": \"5s\",\r\n
+    \ ],\r\n  \"schemaVersion\": 39,\r\n  \"version\": 5,\r\n  \"refresh\": \"5s\",\r\n
     \ \"time\": {\r\n    \"from\": \"now-15m\",\r\n    \"to\": \"now\"\r\n  },\r\n
     \ \"panels\": [\r\n    {\r\n      \"id\": 1,\r\n      \"title\": \"Compras criadas
     por segundo\",\r\n      \"type\": \"timeseries\",\r\n      \"gridPos\": {\r\n
     \       \"h\": 8,\r\n        \"w\": 12,\r\n        \"x\": 0,\r\n        \"y\":
     0\r\n      },\r\n      \"datasource\": {\r\n        \"type\": \"prometheus\",\r\n
     \       \"uid\": \"prometheus\"\r\n      },\r\n      \"targets\": [\r\n        {\r\n
-    \         \"expr\": \"sum(rate(orders_initiated_total{status=\\\"PENDING\\\"}[1m]))\",\r\n
+    \         \"expr\": \"sum(rate(orders_initiated_total{status=\\\"CONFIRMED\\\"}[1m]))\",\r\n
     \         \"refId\": \"A\",\r\n          \"legendFormat\": \"Compras criadas por
     segundo\"\r\n        }\r\n      ],\r\n      \"fieldConfig\": {\r\n        \"defaults\":
     {\r\n          \"unit\": \"ops\"\r\n        },\r\n        \"overrides\": []\r\n
@@ -305,8 +305,8 @@ data:
     8,\r\n        \"w\": 12,\r\n        \"x\": 12,\r\n        \"y\": 32\r\n      },\r\n
     \     \"datasource\": {\r\n        \"type\": \"prometheus\",\r\n        \"uid\":
     \"prometheus\"\r\n      },\r\n      \"targets\": [\r\n        {\r\n          \"expr\":
-    \"sum by (status) (rate(payment_requests_total[1m]))\",\r\n          \"refId\":
-    \"A\",\r\n          \"legendFormat\": \"{{status}}\"\r\n        }\r\n      ],\r\n
+    \"sum by (http_status) (rate(payment_requests_total[1m]))\",\r\n          \"refId\":
+    \"A\",\r\n          \"legendFormat\": \"{{http_status}}\"\r\n        }\r\n      ],\r\n
     \     \"fieldConfig\": {\r\n        \"defaults\": {\r\n          \"unit\": \"ops\"\r\n
     \       },\r\n        \"overrides\": []\r\n      },\r\n      \"options\": {\r\n
     \       \"legend\": {\r\n          \"displayMode\": \"list\",\r\n          \"placement\":
