@@ -1,4 +1,4 @@
-"""TicketMEI Order — compras PENDING e outbox durável para RabbitMQ."""
+"""TicketMEI Order — compras com Circuit Breaker para Payment e outbox durável para RabbitMQ."""
 import json
 import logging
 import os
@@ -13,16 +13,25 @@ from uuid import uuid4
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 from starlette.responses import Response
+
+try:
+    from circuit_breaker import CircuitBreakerOpenError, PaymentCircuitBreaker
+except ImportError:
+    from order.circuit_breaker import CircuitBreakerOpenError, PaymentCircuitBreaker
 
 log = logging.getLogger('ticketmei.order')
 DB_PATH = Path(os.getenv('ORDER_DB_PATH', '/data/orders.db'))
 CATALOG_URL = os.getenv('CATALOG_URL', 'http://catalog:8001')
 RABBITMQ_URL = os.getenv('RABBITMQ_URL', 'amqp://ticketmei:ticketmei_dev@rabbitmq:5672/%2F')
+EXCHANGE_NAME = 'orders.exchange'
 QUEUE_NAME = 'order_created'
+PAYMENT_URL = os.getenv('PAYMENT_URL', 'http://payment:8004')
 
+cb = PaymentCircuitBreaker()
 orders_initiated_total = Counter('orders_initiated_total', 'Compras criadas', ['status'])
 order_request_duration_seconds = Histogram('order_request_duration_seconds', 'Latencia de criacao de compra')
 orders_outbox_pending = Gauge('orders_outbox_pending', 'Eventos OrderCreated ainda por publicar')
@@ -74,10 +83,7 @@ def count_pending():
 
 
 def outbox_publisher(stop: threading.Event):
-    """Reenvia mensagens pendentes; a compra fica guardada mesmo com broker offline.
-
-    Utiliza confirmação de publicação, fila durável e mensagens persistentes.
-    """
+    """Reenvia mensagens pendentes para o RabbitMQ (orders.exchange -> order_created)."""
     while not stop.is_set():
         try:
             with db_connection() as db:
@@ -91,11 +97,13 @@ def outbox_publisher(stop: threading.Event):
                 conn = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))
                 try:
                     channel = conn.channel()
+                    channel.exchange_declare(exchange=EXCHANGE_NAME, exchange_type='fanout', durable=True)
                     channel.queue_declare(queue=QUEUE_NAME, durable=True)
+                    channel.queue_bind(exchange=EXCHANGE_NAME, queue=QUEUE_NAME, routing_key=QUEUE_NAME)
                     channel.confirm_delivery()
 
                     channel.basic_publish(
-                        exchange='',
+                        exchange=EXCHANGE_NAME,
                         routing_key=QUEUE_NAME,
                         body=row['payload'].encode('utf-8'),
                         properties=pika.BasicProperties(
@@ -134,10 +142,10 @@ async def lifespan(app: FastAPI):
         thread.join(timeout=3)
 
 
-app = FastAPI(title='TicketMEI Order', version='2.0.0', lifespan=lifespan)
+app = FastAPI(title='TicketMEI Order', version='2.1.0', lifespan=lifespan)
 
 
-@app.post('/orders', status_code=202)
+@app.post('/orders', status_code=201)
 async def create_order(payload: OrderInput, request: Request):
     start = perf_counter()
     try:
@@ -174,13 +182,6 @@ async def create_order(payload: OrderInput, request: Request):
             'status': 'PENDING',
         }
 
-        message = {
-            'event_type': 'OrderCreated',
-            'order_id': order_id,
-            'email': payload.email,
-            'created_at': now
-        }
-
         with db_connection() as db:
             db.execute(
                 """INSERT INTO orders
@@ -188,13 +189,40 @@ async def create_order(payload: OrderInput, request: Request):
                 VALUES (:id, :customer_id, :event_id, :email, :created_at, :total_amount, :quantity, :status)""",
                 order
             )
+
+        payment_payload = {
+            'order_id': order_id,
+            'amount': float(amount),
+        }
+
+        try:
+            await cb.call_payment(PAYMENT_URL, payment_payload)
+        except CircuitBreakerOpenError:
+            with db_connection() as db:
+                db.execute('UPDATE orders SET status = ? WHERE id = ?', ('FAILED', order_id))
+            orders_initiated_total.labels(status='FAILED').inc()
+            return JSONResponse(
+                status_code=503,
+                content={'error': 'Payment system unavailable, try again later'},
+            )
+
+        order['status'] = 'CONFIRMED'
+        message = {
+            'event_type': 'OrderCreated',
+            'order_id': order_id,
+            'email': payload.email,
+            'created_at': now,
+        }
+
+        with db_connection() as db:
+            db.execute('UPDATE orders SET status = ? WHERE id = ?', ('CONFIRMED', order_id))
             db.execute(
                 'INSERT INTO outbox (id, payload) VALUES (?, ?)',
                 (order_id, json.dumps(message))
             )
 
-        orders_initiated_total.labels(status='PENDING').inc()
-        return order
+        orders_initiated_total.labels(status='CONFIRMED').inc()
+        return JSONResponse(status_code=201, content=order)
     finally:
         order_request_duration_seconds.observe(perf_counter() - start)
 

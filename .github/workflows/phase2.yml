@@ -28,7 +28,7 @@ jobs:
       - name: Validar Compose
         run: docker compose config --quiet
       - name: Iniciar o ambiente
-        run: docker compose up -d --build --wait catalog rabbitmq order notification api-gateway prometheus grafana
+        run: docker compose up -d --build --wait catalog payment rabbitmq order notification api-gateway prometheus grafana
       - name: Testar endpoints e fluxo OrderCreated
         run: python scripts/e2e_phase2.py
       - name: Executar k6 - Fase 2

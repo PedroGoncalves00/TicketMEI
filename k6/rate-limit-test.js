@@ -36,7 +36,7 @@ export default function () {
   rateLimited.add(res.status === 429);
 
   check(res, {
-    'status is 202 or 429': (r) => r.status === 202 || r.status === 429,
+    'status is 201 or 429': (r) => r.status === 201 || r.status === 429,
   });
 
   sleep(0.05);
