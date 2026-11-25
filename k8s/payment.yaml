@@ -37,7 +37,7 @@ spec:
     spec:
       containers:
         - name: payment
-          image: ghcr.io/pedrogoncalves00/ticketmei-payment:latest
+          image: ghcr.io/pedrogoncalves00/ticketmei-payment:b9889f12ec36d1eaf2b626fcb8ab18bca71da716
           imagePullPolicy: Always
           ports:
             - containerPort: 8004
